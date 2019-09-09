@@ -1,0 +1,32 @@
+---
+title: "Неделя 1"
+author: "Alona Sychevska"
+date: "9/30/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Степ 2.8
+
+Параметр `echo = FALSE` был добавлен к чанку кода, чтобы код, который сгенерировал график, не показывался в документе.
+```{r}
+library(ggplot2)
+ggplot(mtcars, aes(x=mpg, y=disp, col=hp))+geom_point()
+```
+
+## График с `echo=FALSE`
+
+```{r echo=FALSE}
+library(ggplot2)
+ggplot(mtcars, aes(x=mpg, y=disp, col=hp))+geom_point()
+```
+
+```{r, echo=FALSE, out.width = "400px"} 
+knitr::include_graphics("/Users/qgelena/downloads/foureyes.png")
+```
+
+Формула: 
+$$\sum_{i=1}^n X_i$$
