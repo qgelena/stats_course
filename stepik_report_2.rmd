@@ -1,0 +1,296 @@
+---
+title: "stepik_report_2"
+author: "Alona Sychevska"
+date: "October 4, 2019"
+output: html_document
+---
+
+```{r warning=FALSE, message = F}
+library(psych)
+library(ggplot2)
+library(GGally)
+```
+# EDA (Exploratory Data Analysis)
+
+# 1. Прочитайте файл с данными
+
+# Загрузка данных
+
+```{r}
+heart_data <- read.csv("/home/qgelena/code/scripts/R/stepik_projects/heart.csv")
+```
+# Проверка структури дата фрейма 
+
+```{r}
+dim(heart_data)
+names(heart_data)
+head(heart_data)
+```
+# 2. Разберитесь, что значит каждый признак и в чем он измеряется
+
+1. age: age in years, непрерывный признак
+2. sex (1 = male; 0 = female), качественный признак
+3. cp: chest pain type, сердечно сосудистое заболевание, качественный
+-- Value 1: typical angina
+-- Value 2: atypical angina
+-- Value 3: non-anginal pain
+-- Value 4: asymptomatic
+4. trestbps: resting blood pressure (in mm Hg on admission to the hospital), непрерывный
+5. chol: serum cholestoral in mg/dl, сывороточный холестерин, непрерывный
+6. fbs: (fasting blood sugar > 120 mg/dl) (1 = true; 0 = false), сахар в крови натощак, качественный
+7. restecg: resting electrocardiographic results, качественный
+-- Value 0: normal
+-- Value 1: having ST-T wave abnormality (T wave inversions and/or ST elevation or depression of > 0.05 mV)
+-- Value 2: showing probable or definite left ventricular hypertrophy by Estes' criteria
+8. thalach: maximum heart rate achieved, непрерывный
+9. exang:  exercise induced angina (1 = yes; 0 = no), качественный
+10. oldpeak = ST depression induced by exercise relative to rest, углубление/опускание ST во время нагрузки, сравнительно с отдыхом
+11. slope: the slope of the peak exercise ST segment, наклон ST сегмента во время пиковой нагрузки, качественный
+-- Value 1: upsloping
+-- Value 2: flat
+-- Value 3: downsloping
+12. ca: number of major vessels (0-3) colored by flourosopy, дисретный
+13. thal (Thalium, a radioactive tracer injected during a stress test *): 3 = normal; 6 = fixed defect; 7 = reversable defect, качественный
+14. num: diagnosis of heart disease (angiographic disease status), качественный
+-- Value 0: < 50% diameter narrowing
+-- Value 1-4: > 50% diameter narrowing
+(in any major vessel: attributes 59 through 68 are vessels)
+
+# 3. Проверьте пропущенные наблюдения
+
+```{r}
+colSums(is.na(heart_data))
+```
+
+# Работа с пропущенными значениями
+Я решила удалить строки с пропущенными значениями, так как данных для анализа достаточно
+```{r}
+heart_data$ca[heart_data$ca == "?"] <- NA
+heart_data$thal[heart_data$thal == "?"] <- NA
+
+colSums(is.na(heart_data))
+
+heart_data <- na.omit(heart_data)
+```
+
+# 4. Определите тип каждого признака (количественные, порядковые, качественные).
+
+# Изменение типов переменных 
+Я решила изменить тип некоторых переменных и изменить их levels, так как в даном дата фрейме много векторов с качественными признаками
+
+Качественные:
+
+```{r}
+heart_data$sex <- factor(heart_data$sex)
+levels(heart_data$sex) <- c("female", "male")
+
+heart_data$cp <- factor(heart_data$cp)
+levels(heart_data$cp) <- c("typical","atypical","non-anginal","asymptomatic")
+
+heart_data$fbs <- factor(heart_data$fbs)
+levels(heart_data$fbs) <- c("false", "true")
+
+heart_data$restecg <- factor(heart_data$restecg)
+levels(heart_data$restecg) <- c("normal","stt","hypertrophy")
+
+heart_data$exang <- factor(heart_data$exang)
+levels(heart_data$exang) <- c("no","yes")
+
+heart_data$slope <- factor(heart_data$slope)
+levels(heart_data$slope) <- c("upsloping","flat","downsloping")
+
+heart_data$thal <- factor(heart_data$thal)
+levels(heart_data$thal) <- c("normal","fixed","reversable")
+
+heart_data$num <- ifelse(heart_data$num %in% c(0), 0, 1)
+
+heart_data$num <- factor(heart_data$num)
+levels(heart_data$num) <- c("Здоров", "Болен")
+```
+
+Дискретные: ca (не может количество сосудов быть дробным):
+
+```{r}
+heart_data$ca <- factor(heart_data$ca) # не делаем конвертацию, так как это не обязательно;
+```
+
+# Для количественных признаков определите, непрерывные они или дискретные
+
+Лайфхак: если сомневаетесь, дискретный признак или нет, постройте его гистограмму с расзмером бина = 1. Если признак непрерывный, то одинаковые значения повторяются очень редко. Если дискретный, то вы увидите несколько высоких столбиков.
+
+Я построила гистограммы для всех количественных признаков с размером бина 1, судя по выше сказаному, эти признаки непрерывные.
+```{r}
+ggplot(heart_data, aes(x = heart_data$thalach))+geom_histogram(binwidth=1)
+
+ggplot(heart_data, aes(x = heart_data$age))+geom_histogram(binwidth = 1)
+
+ggplot(heart_data, aes(x = heart_data$trestbps))+geom_histogram(binwidth = 1)
+
+ggplot(heart_data, aes(x = heart_data$chol))+geom_histogram(binwidth = 1)
+
+ggplot(heart_data, aes(x = heart_data$oldpeak))+geom_histogram(binwidth = 1)
+```
+
+# 5. Смотрим на общие статистики: совпадают ли ожидаемые признаков значения с реальными? 
+
+Я использовала функцию describeBy, чтобы посмотреть на общие статистики, не учитывая данных с качественными признаками.
+
+Можно заметить, что в выборке больше испытуемых, которые здоровы, 160 и 137, соответственно.
+В здоровых испытуемых можно увидеть крайние значения по переменной chol, сывороточный холестерин в отметке 564, что значительно больше, чем крайняя отметка для больных людей (409.0).
+
+max кров. давление (thalach) в здоровых людей по среднему и медиане привышают значения в больных людей.
+
+Также значения переменной oldpeak в здоровых людей ниже по медиане и среднему значению, чем в больных людей.
+
+```{r}
+describe(heart_data)
+describeBy(heart_data[, -c(2, 3, 6, 7, 9, 11, 12, 13, 14)], heart_data$num, mat=T)
+```
+
+# 6. Строим scatterplot для всех пар, долго его разглядываем с точки зрения outliers, неоднородностей, вида распределений, вида зависимостей (линейные/нелинейные) и прочие. Запишите свои наблюдения.
+
+Строим scatterplot для всех пар
+
+```{r}
+
+pairs(heart_data[, -c(2, 3, 6, 7, 9, 11, 12, 13, 14)], col=heart_data$num)
+
+ggpairs(heart_data[, -c(2, 3, 6, 7, 9, 11, 12, 13, 14)])
+
+#Но в таком виде совершенно ничего не видно :( 
+#Советую узнать, как изменить размер графика и сделать его больше
+ggpairs(heart_data, lower = list(combo = wrap("facethist", binwidth = 1, mapping=aes(colour=num, alpha=0.4))))
+```
+
+# 7. Если есть outliers, то попробуйте объяснить их причину (ошибка в данных, особые индивиды) и удалить их
+
+Было замечено несколько аутлаеров, некоторые из них при этом находятся в категории “здоровые”. Например, женщина с chol больше 500 и thalach около 160. Я бы уточнила у авторов исследования, не являются ли подобные значения ошибками измерений
+
+```{r}
+pairs(heart_data[ ,c(1,4,5,8,10)], col = heart_data$num)
+par (xpd=TRUE)
+legend("bottomright", fill=unique(heart_data$num), legend=c(levels(heart_data$num)))
+```
+
+# 8. Если есть неоднородности (например, видны два облака точек), то постарайтесь объяснить причину (найти категоризующую переменную, объясняющую эту неоднородность). Для этого нужно раскрасить scatterplot для всех пар в цвета по всем категориальным переменным и найти ту, такую раскраску, в которой ваши облака одноцветные.
+
+Хорошо заметна разница между группами здровых и больных по показателям oldpeak, thalach. У здоровых выше показатель thalach, у больных выше oldpeak
+
+```{r}
+pairs(heart_data[ ,c(1,4,5,8,10)], col = heart_data$slope)
+
+pairs(heart_data[ ,c(1,4,5,8,10)], col = heart_data$cp)
+```
+Можно заметить, что аутлаеры по переменной oldpeak лежат в одной (зелёной) категории slope. Также они лежат в одной (синей) категории cp
+
+Разделения данных на чёткие облака отмечено не было
+
+#"аутлайнеры по переменной oldpeak лежат в одной (зелёной) категории slope" а какому значению соответсвует зеленый slope?
+
+```{r}
+pairs(heart_data[ ,c(1,4,5,8,10)], col = heart_data$slope)
+par (xpd=TRUE)
+legend("bottomright", fill=unique(heart_data$slope), legend=c(levels(heart_data$slope)))
+```
+
+# 9. Графики с помощью ggplot2. Минимум 5 разнообразных графиков. Обязательно постройте эти графики и опишите словами, что интересного вы в них нашли.
+
+гистограммы (не забудьте поэкспериментировать с размером бинов и объяснить, как изменился вид гистограммы)
+ящики с усами и с точечками
+вайлин плоты с точечками
+попробуйте facet_grid
+разбивайте графики по категориальным переменным и раскрашивайте их в разные цвета (попробуйте разные цветовые схемы)
+
+```{r}
+ggpairs(heart_data[ ,c(1,4,5,8,10)], aes(col=heart_data$num, alpha = 0.4))
+```
+
+У здоровых выше показатель thalach, у больных выше oldpeak
+
+```{r}
+ggpairs(heart_data[ ,c(1,4,5,8,10)], aes(col=heart_data$slope, alpha = 0.4))
+```
+
+“зелёный” slope - это “2” Value 2: flat" - плоский угол
+
+```{r}
+ggpairs(heart_data, aes(col=heart_data$num, alpha = 0.4))
+```
+
+```{r}
+ggplot(heart_data, aes(x=num, y=oldpeak)) + 
+  geom_boxplot(outlier.colour="red", outlier.shape=8,
+               outlier.size=4) +
+  geom_jitter(shape=16, position=position_jitter(0.2)) 
+```
+
+На этом графике мы видим, что по показателю oldpeak у больных, например, существенно больше медиана, а также “намного больше сам ящик”, то есть выше среднеквдратическое отклонение (Надеюсь, я не путаюсь в том, что ширина box plot позволеят судить о среднеквадратическом отклонении, раз для его построения мы откладываем 1,5 квартиля, размер которых как раз зависит от sd)
+
+#```{r}
+#ggplot(heart_data, aes(x=age, y=oldpeak, col=thalach)) +  geom_point() + facet_grid(vars(num), vars(sex))
+#```
+
+На этом графике видно, что больных женщин в испытании было существенно меньше. Если игнорировать outliers, то можно сказать, что характер распределения признака среди больных и здоровых похож у обоих полов
+
+```{r}
+ggplot(heart_data, aes(x=num, y=oldpeak, col=sex)) + 
+  geom_violin() +
+  geom_jitter(shape=16, position=position_jitter(0.2))
+```
+
+Различия в распределении признака идут по параметру здоровый/больной, а не полу, что различаются медианы и отклонение
+
+```{r}
+ggplot(heart_data, aes(thalach, fill = sex, alpha = 0.5)) +
+  geom_histogram(binwidth = 5)
+```
+
+На этой гистограмме мы видим, что у женщин показатель thalach в среднем выше
+
+```{r}
+ggplot(heart_data, aes(thalach, fill = sex, alpha = 0.5)) +
+  geom_histogram(binwidth = 50)
+```
+
+Давайте поэкспериментируем с bin`ом. Можно заметить, что при неправильно подобранном шаге информативность гистограммы существенно снижается
+
+## Графики
+
+```{r}
+#я бы еще добавила легенду к цветам, чтобы было еще понятнее
+ggplot(data=heart_data[!is.na(heart_data$thalach),], aes(num, thalach)) + 
+  geom_violin(aes(fill = num), trim = FALSE, alpha = 0.3) + 
+  geom_boxplot(aes(fill = num), width = 0.2, outlier.colour = NA) + 
+  theme(legend.position = "NA") + geom_jitter(shape=16, position=position_jitter(0.2))
+
+heart_data$new.var <- heart_data$age > 50
+ggplot(heart_data, aes(x=chol, y=slope)) +
+geom_point(alpha=0.5) +
+facet_grid(new.var ~sex) +
+scale_color_gradient(low = "blue", high = "red") +
+theme_bw()
+```
+
+```{r}
+ggplot(heart_data, aes(x = chol)) + geom_histogram(fill='blue', col="yellow", binwidth = 7)
+hist(heart_data$chol)
+
+# Так никогда не делать (!):
+# ggplot(heart_data, aes(x=oldpeak, fill =slope)) + geom_dotplot()
+
+ggplot(heart_data, aes(x=num, y=chol)) + geom_boxplot()
+```
+
+# Review
+
+1. В чанках, которые кидают ворнинги используй waning =F и message = F, чтобы не захламлять html. Например, вот тут стоило отключить ворнинги ```{r} library(psych) library(ggplot2) library(GGally) ``` 
+
+2. Про количественные переменные нужно было понять дискретные они или непрерывные. 
+
+3. Вот эта операция совсем некорректная `heart_data_dis <- heart_data[heart_data$num == "0" | heart_data$num == "1", ]` 0 кодирует здоровых людей, а 1,2,3,4 больных. Тебе нужно было склеить всех больных людей, а ты вместо этого выкинула тех, у кого heart_data$num == "2" или heart_data$num == "3" или heart_data$num == "4", то есть выкинула большой кусок датасета.  
+
+4. Там, где рисуешь парные скаттерплоты нужно описывать, что ты на них видишь -- зависимости, неоднородности в данных, аутлаеры, ... 
+
+5. Здорово, что научилась строить такой график ggpairs(heart_data_dis, lower = list(combo = wrap("facethist", binwidth = 1, mapping=aes(colour=num, alpha=0.4)))) Но в таком виде совершенно ничего не видно :( Советую узнать, как изменить размер графика и сделать его больше 
+
+6. Вот этот график классный! ggplot(data=heart_data_dis[!is.na(heart_data_dis$thalach),], aes(num, thalach)) + geom_violin(aes(fill = num), trim = FALSE, alpha = 0.3) + geom_boxplot(aes(fill = num), width = 0.2, outlier.colour = NA) + theme(legend.position = "NA") + geom_jitter(shape=16, position=position_jitter(0.2)) я бы еще добавила легенду к цветам, чтобы было еще понятнее 
