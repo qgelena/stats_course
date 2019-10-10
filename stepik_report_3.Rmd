@@ -1,0 +1,288 @@
+---
+title: "stepik_report_3"
+author: "Alona Sychevska"
+date: "10/10/2019"
+output: html_document
+---
+
+```{r message=FALSE}
+library(lattice)
+library(psych)
+library(ggplot2)
+library(qqplotr)
+library(GGally)
+library(Rmisc)
+library(ggpubr)
+```
+
+## Задача по программированию на R
+
+Задача: проверить Центральную предельную теорему для любимого дискретного распределения.
+
+План:
+
+1. Выбирите ваше любимое дискретное распределение. Например, можете выбрать распределение из этого списка: Бернулли, биномиальное, равномерное (кубик), Пуассон, геометрическое распределение.
+
+Я выбрала биномиальное распределение.
+
+2. Узнайте, как в R извлечь выборку из вашего любимого распределения. Нужная вам функция должна начинаться на букву r (например,  runif, rbinom, ..) 
+
+С биномиального распределения выборку можно извлечь при помощи функции rbinom.
+
+3. Извлеките 3 выборки из вашего распределения размером 10, 100, 1000 и постройте для них гистограммы. Похожи ли эти гистограммы на теоретическое распределение?
+
+Чем больше обьем выборки, тем больше распределение начинает напоминать биномиальное.
+
+```{r}
+p <- 0.7 #  вероятность успеха в эксперименте Бернулли;
+n <- 20 # количество бросков в биномиальном эксперименте;
+
+sample_1 <- rbinom(n = 10, size = n, prob = p)
+sample_2 <- rbinom(n = 100, size = n, prob = p)
+sample_3 <- rbinom(n = 1000, size = n, prob = p)
+
+#library(ggplot2)
+#ggplot(as.numeric(sample_1)) + geom_histogram(binwidth = n)
+
+histogram(sample_1, nint=length(unique(sample_1)))
+histogram(sample_2, nint=length(unique(sample_2)))
+histogram(sample_3)
+```
+
+5. Используйте векторизованную функцию replicate (посмотрите самостоятельно, что она делает), чтобы создать 1000 выборок, каждая из которых имеет размер 10
+
+```{r}
+samples <- replicate(1000, rbinom(n=10, size = n, prob = p))
+```
+
+6. Используйте функцию apply, чтобы посчитать вектор средних значений
+
+```{r}
+apply(X = samples, MARGIN = 2, FUN = mean) 
+```
+
+7. Оберните шаги 5-6 в функцию, которая принимает объем выборки и возвращает вектор средних значений
+
+```{r}
+CLT_saples_mean <- function(sample_size){
+  samples <- replicate(1000, rbinom(n=sample_size, size = n, prob = p))
+  apply(X = samples, MARGIN = 2, FUN = mean)
+}
+```
+
+8. Постройте гистограммы средних для разных объемов выборки -- 2, 5, 30, 100, 1000 
+
+```{r}
+histogram(CLT_saples_mean(2))
+histogram(CLT_saples_mean(5))
+histogram(CLT_saples_mean(30))
+histogram(CLT_saples_mean(100))
+histogram(CLT_saples_mean(1000))
+```
+
+9. Что вы видите  на этих гистограммах? Совпадает ли это с тем, что говорит ЦПТ? Расскажите свои наблюдения.
+
+Чем больше обьем выборки, тем меньше стандартная ошибка среднего. Распределение выглядит, как нормальное при больших n.
+
+## Задание по анализу данных:
+
+Продолжаем работать с датасетом heart. В этот раз ваша задача состоит в том, чтобы проанализировать распределение признаков на нормальность и построить доверительные интервалы.
+```{r}
+
+# Загрузка данных
+  
+heart_data <- read.csv("~/code/scripts/R/stepik_projects/heart.csv")
+
+# Работа с пропущенными значениями
+#Я решила удалить строки с пропущенными значениями, так как данных для анализа достаточно
+
+heart_data$ca[heart_data$ca == "?"] <- NA
+heart_data$thal[heart_data$thal == "?"] <- NA
+
+heart_data <- na.omit(heart_data)
+
+# Изменение типов переменных 
+#Я решила изменить тип некоторых переменных и изменить их levels, так как в даном дата фрейме много векторов с качественными признаками
+
+heart_data$sex <- factor(heart_data$sex)
+levels(heart_data$sex) <- c("female", "male")
+
+heart_data$cp <- factor(heart_data$cp)
+levels(heart_data$cp) <- c("typical","atypical","non-anginal","asymptomatic")
+
+heart_data$fbs <- factor(heart_data$fbs)
+levels(heart_data$fbs) <- c("false", "true")
+
+heart_data$restecg <- factor(heart_data$restecg)
+levels(heart_data$restecg) <- c("normal","stt","hypertrophy")
+
+heart_data$exang <- factor(heart_data$exang)
+levels(heart_data$exang) <- c("no","yes")
+
+heart_data$slope <- factor(heart_data$slope)
+levels(heart_data$slope) <- c("upsloping","flat","downsloping")
+
+heart_data$ca <- factor(heart_data$ca) # не делаем конвертацию, так как это не обязательно;
+
+heart_data$thal <- factor(heart_data$thal)
+levels(heart_data$thal) <- c("normal","fixed","reversable")
+
+
+heart_data$num <- ifelse(heart_data$num %in% c(0), 0, 1)
+
+heart_data$num <- factor(heart_data$num)
+levels(heart_data$num) <- c("Здоров", "Болен")
+
+```
+1. Для каждого количественного признака* постройте QQ-плот
+
+```{r}
+sapply(colnames(heart_data), function(col) {
+  data <- heart_data[, col]
+  if (is.numeric(data)) {
+    ggplot() + aes(sample = scale(data)) +
+      stat_qq() +
+      stat_qq_line() +
+      ggtitle(col)+
+      theme_bw()
+  }
+})
+```
+2. Опишите каждый QQ-плот: толстые хвосты, тонкие хвосты, перекосы влево-вправо, ...
+
+#Age
+
+Наблюдаем тонкие хвосты. Распределение выглядит близким к нормальному, но с видимими регулярными отклонениями. Существует выпуклость около -1 sigma.
+
+#trestbps
+
+Толстый хвост справа. Ступеньки непонятной природы. Слева возможный тонкий хвост (?)
+
+#chol
+
+Слева тонкий хвост (?). Справа толстый хвост (?) и аутлаер. Горбик в правой части распредления.
+
+#thalach
+
+Тонкий правый хвост.
+
+#oldpeak
+
+Не нормальное распределение.
+
+3. Если вы видите у распределения тяжелый хвост справа, то попробуйте это признак логарифмировать и снова построить QQ-плот. Стало ли лучше?
+
+Я увидела толстые хвосты справа по двух переменных chol и trestbps, прологарифмировала признаки, но ощутимых изменений в положительную сторону не увидела.
+
+```{r}
+log_qqplot <- function(col) {
+  ggplot() + aes(sample = scale(log(heart_data[, col]))) +
+    stat_qq() +
+    stat_qq_line() +
+    ggtitle(col) +
+    theme_bw()
+}
+
+log_qqplot("trestbps")
+log_qqplot("chol")
+
+
+```
+
+4. Если признак плохо ложится на прямую в QQ-плоте, то попробуйте разбить его по категориальным переменным (м-ж, болен-здоров) и посмотреть на QQ-плоты для каждой подгруппы. Может оказаться так, что только какая-то определенная группа плохая.
+
+В распределении по переменной trestbps, разбитом по болен-здоров, распределение для здоров выглядит более нормально.
+
+Для других переменных явных отличий нету.
+```{r}
+sapply(colnames(heart_data), function(col) {
+  data <- heart_data[, col]
+  if (is.numeric(data)) {
+    ggplot(heart_data) + aes(sample = scale(data)) +
+      stat_qq() +
+      stat_qq_line() +
+      facet_grid(sex ~.) +
+      ggtitle(col)+
+      theme_bw()
+  }
+})
+
+sapply(colnames(heart_data), function(col) {
+  data <- heart_data[, col]
+  if (is.numeric(data)) {
+    ggplot(heart_data) + aes(sample = scale(data)) +
+      stat_qq() +
+      stat_qq_line() +
+      facet_grid(num ~.) +
+      ggtitle(col)+
+      theme_bw()
+  }
+})
+```
+
+5. Постройте доверительные интервалы с помощью функции CI для всех количественных переменных
+
+```{r}
+
+sapply(colnames(heart_data), function(col) {
+  data <- heart_data[, col]
+  if (is.numeric(data)) {
+    CI(heart_data[, col], ci = 0.95)
+      }
+})
+```
+
+6. Постройте доверительные интервалы самостоятельно с помощью формулы (не забудьте объяснить, почему в нашем случае корректно использовать эту формулу).
+
+```{r}
+
+sapply(colnames(heart_data), function(col) {
+  data <- heart_data[, col]
+  if (is.numeric(data)) {
+    mu_col <- mean(data)
+    se <- sd(data)/sqrt(pairwiseCount(data))
+    lower_CI <- mu_col - 1.96 * se
+    upper_CI <- mu_col + 1.96 * se
+    print(c(lower_CI, mu_col, upper_CI))
+   }
+})
+```
+
+7. Сравните результаты ваших доверительных интервалов и функции CI. Совпадают ли они? Если нет, то разберитесь, кто из вас неправ :)
+
+Как видно, после использования функции CI и после подсчета доверительных интервалов вручную, минимальное, среднее и максимальное значения совпадают.
+
+8. Постройте графики доверительных интервалов для всех количественных переменных с разделением по болен-здоров. Видите ли вы непересекающиеся доверительные интервалы?
+
+Да, можно заметить непересекающиеся доверительные интервалы по переменных age, thalach и oldpeak.
+
+#age
+
+Возраст статистически значимо влияет на распредление на больных и здоровых.
+
+#thalach 
+
+У больных людей сердечный ритм во время максимальной нагрузки ниже, со статистической значимостью 95%.
+
+#oldpeak
+
+```{r}
+
+sapply(colnames(heart_data), function(col) {
+  data <- heart_data[, col]
+  if (is.numeric(data)) {
+    ggerrorplot(heart_data,
+      x = "num", y = col,
+      desc_stat = "mean_ci", ci = 0.95,
+      color = "num") +
+      theme_bw()
+  }
+})
+
+#ggdensity(heart_data, x = "age",
+#   add = "mean", rug = TRUE,
+#   color = "num", fill = "num",
+#   palette = c("#00AFBB", "#E7B800"))
+```
+
+*Бонусное задание: попробуйте сделать так, чтобы графики для всех переменных построились автоматически. Особенно это удобно, если количественных переменных в датасете очень много 
