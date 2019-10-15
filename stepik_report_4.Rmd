@@ -1,0 +1,203 @@
+---
+title: "stepik_report_4"
+author: "Alona Sychevska"
+date: "10/15/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r message=FALSE}
+library(psych)
+library(ggplot2)
+library(GGally)
+library(qqplotr)
+library(lattice)
+library(Rmisc)
+```
+
+# Загрузка данных
+
+```{r}
+diabetes <- read.csv("~/code/scripts/R/stepik_projects/diabetes.csv")
+```
+# Проверка структури дата фрейма 
+
+```{r}
+head(diabetes)
+str(diabetes)
+```
+
+#Определите тип каждого признака (количественные, порядковые, качественные). 
+
+Для количественных признаков определите, напрерывные они или дискретные (в том числе, дискретными могут стать непрерывные признаки, которые измерены с плохой точностью).
+
+Лайфхак: если сомневаетесь, дискретный признак или нет, постройте его гистограмму с расзмером бина = 1. Если признак непрерывный, то одинаковые значения повторяются очень редко. Если дискретный, то вы увидите несколько высоких столбиков.
+
+Pregnancies — количество беременностей, дискретный признак         
+Glucose  — Plasma glucose concentration a 2 hours in an oral glucose tolerance test, непрерывный          
+BloodPressure — кровяное давление в (mm Hg), непрерывный признак    
+SkinThickness — Triceps skin fold thickness (mm) — толщина кожи в мм, непрерывный      
+Insulin — 2-Hour serum insulin (mu U/ml), непрерывный           
+BMI — Body mass index (weight in kg/(height in m)^2), непрерывный               
+DiabetesPedigreeFunction 
+Age — возраст пациентов, дискретный признак                    
+Outcome  – исход (0 — здоров, 1 — болен), качественный признак
+
+```{r}
+diabetes$Outcome <- factor(diabetes$Outcome)
+levels(diabetes$Outcome) <- c("Здоров", "Болен")
+```
+#Определение размера датасета
+
+```{r}
+dim(diabetes)
+```
+
+# Работа с пропущенными значениями
+
+Я решила удалить строки с пропущенными значениями, хотя, если честно, не знаю, что в таких случаях точно делать. Возможно, подмену данных, но пока что я не опытна в этом, поэтому не пробовала. 
+
+#```{r}
+#for (i in 1:nrow(diabetes)) {
+#  if (diabetes$SkinThickness[i] == 0 & diabetes$Insulin[i] ==0) {print(diabetes[i, ])}
+#}```
+
+```{r}
+sum(diabetes$BloodPressure == 0)
+sum(diabetes$Glucose == 0)
+sum(diabetes$SkinThickness == 0)
+sum(diabetes$Insulin == 0)
+sum(diabetes$BMI == 0)
+sum(diabetes$DiabetesPedigreeFunction == 0)
+```
+
+Решила посмотреть перекрываются ли подмножины SkinThickness и Insulin
+
+```{r}
+sum(diabetes$SkinThickness == 0 & diabetes$Insulin == 0)
+sum(diabetes$SkinThickness == 0 | diabetes$Insulin == 0)
+```
+
+# Работа с NA
+
+```{r}
+diabetes$BloodPressure[diabetes$BloodPressure == "0"] <- NA
+diabetes$Glucose[diabetes$Glucose == "0"] <- NA
+diabetes$SkinThickness[diabetes$SkinThickness == "0"] <- NA
+diabetes$Insulin[diabetes$Insulin == '0'] <- NA
+diabetes$BMI[diabetes$BMI == '0'] <- NA
+diabetes$DiabetesPedigreeFunction[diabetes$DiabetesPedigreeFunction == '0'] <- NA
+
+colSums(is.na(diabetes))
+
+diabetes <- na.omit(diabetes)
+```
+
+# Oбщие статистики
+
+Cовпадают ли ожидаемые признаков значения с реальными? Смотрим на статистики по группам, какие вы видите отличия между группами? Одинаковый ли размер этих групп? 
+
+Я использовала функцию describeBy, чтобы посмотреть на общие статистики, не учитывая данных с качественными признаками.  
+
+```{r}
+describe(diabetes)
+describeBy(diabetes[, -c(9)], diabetes$Outcome, mat=T)
+```
+
+# Строим scatterplot для всех пар
+
+Долго его разглядываем с точки зрения outliers, неоднородностей, вида распределений, вида зависимостей (линейные/нелинейные) и прочие
+
+Пока что что-то не очень красиво и не совсем понятно, что происходит, буду работать. Может надо что-то поменять?
+
+```{r}
+
+pairs(diabetes[, -c(9)], col=diabetes$Outcome)
+
+ggpairs(diabetes[, -c(9)])
+
+#Не знаю как изменить размер графика и сделать его больше?
+ggpairs(diabetes, lower = list(combo = wrap("facethist", binwidth = 1, mapping=aes(colour=Outcome, alpha=0.4))))
+```
+
+# qqplots, нормальность распределения
+
+1) Pregnancies. Это распределение имеет толстый хвост справа и тонкий хвост слева. Имеет ступенчастую структуру.
+2) Glucose. Распределение имеет тонкие концы с обеих сторон. S-подобная форма, не похоже чтобы оно было нормальным.
+3) BloodPressure. Распределение имеет толстые концы с обеих сторон и ступенчастую структуру. Можно попробовать логарифмировать.
+4) SkinThickness. Распределение имеет тонкие хвосты с обеих сторон и ступенчастую структуру.
+5) Insulin. Сложно что-то сказать о нормальности распределения. Имеет толстый хвост справа и тонкий слева. Попробую логарифмировать.
+6) BMI. Тонкий хвост слева и толстый справа, но похоже на нормальное распредедение (?)
+7) DiabetesPedigreeFunction. Тонкий хвост слева и толстый справа.
+8) Age. Не похоже на нормальное распределение. Тонкий хвост слева и толстый справа. S-подобная форма.
+
+```{r}
+sapply(colnames(diabetes), function(col) {
+  data <- diabetes[, col]
+  if (is.numeric(data)) {
+    ggplot() + aes(sample = scale(data)) +
+      stat_qq() +
+      stat_qq_line() +
+      ggtitle(col)+
+      theme_bw()
+  }
+})
+```
+
+# Eсли видите тяжелый хвост, попробуйте логарифмировать признак.
+
+Брать log_qqplot("Pregnancies") имеет мало смысла, потому что Pregnancies распределены по power law, похоже, что добавления каждого ребенка уменьшает количество женщин приблизительно в 1.18 раза.
+
+По признаку BloodPressure никаких положительных изменений не произошло после логарифмирования.
+
+По признаку Insulin после логарифмирования распределение стало лучше, но не идеально: небольшой горбик, но нету хвоста справа.
+
+По признаку BMI: стало лучше, хвост остался, но уже поменьше.
+
+По признаку DiabetesPedigreeFunction: стало лучше, но все равно остались хвосты.
+
+По признаку Age: после логарифмирования все равно не похоже на нормальное распределение, но тяжелый хвост справа стал меньше. 
+
+```{r} 
+log_qqplot <- function(col) {
+  data <- diabetes[diabetes[col] != 0, ]
+  ggplot() + aes(sample = scale(log(data[, col]))) +
+    stat_qq() +
+    stat_qq_line() +
+    ggtitle(col) +
+    theme_bw()
+}
+
+log_qqplot("Pregnancies")
+log_qqplot("BloodPressure")
+log_qqplot("Insulin")
+log_qqplot("BMI")
+log_qqplot("DiabetesPedigreeFunction")
+log_qqplot("Age")
+```
+
+# Корреляции
+
+1. Посмотрите еще раз на свой scatterplot по всем парам, какие зависимости вы видите в данных? Не забудьте, что при неоднородных данных изучать зависимости имеет смысл только внутри групп по-отдельности
+
+Можно увидеть что-то похожее на линейную зависимость по переменным  Age и Pregnancies; BMI и SkinThickness. Я думаю, что, возможно, если разбить по категориальной переменной больной-здоров, то могла бы быть видна линейная зависимость между переменными Insulin и Glucose.
+
+2. Начинаем с анализа линейных зависимостей. Постройте матрицу корреляций и посмотрите, видите ли там большие значения или значения близкие к нулю
+
+Если посмотреть на даную матрицу, можно увидеть большую корреляцию между переменными Insulin и Glucose -- 0,581; Age и Pregnancies -- 0,679; BMI и SkinThickness -- 0,664. Так же можно заметить очень низкую корреляцию между переменными BMI и Pregnancies -- (-0,025); DiabetesPedigreeFunction и Pregnancies -- 0,00756; DiabetesPedigreeFunction и BloodPressure -- (-0,0159); BMI и Age -- 0,0698.
+
+```{r}
+cor(diabetes[, sapply(diabetes, is.numeric)])
+```
+ПРЕДУПРЕЖДЕНИЕ: пока вы не сделали статистический тест, вы не можете говорить, что корреляция 0.816 большая и не можете ничего интерпретировать!! Пока просто смотрим.
+
+3. Постройте матрицу корреляций Спирмена. Похожа ли эта матрица на обычную матрицу корреляций?
+
+Можно заметить, что цифры по этих двух матрицах конечно же разные, но не критически, буквально на какие-то сотые или тысячные. Возможно, матрица корреляций Пирсона часто дает лучшие результаты, так как устойчива к выбросам и все по многим переменным мы имеет нелинейную зависимость. 
+
+```{r}
+cor(diabetes[, sapply(diabetes, is.numeric)], method = "spearman")
+```
+4. Если при сравнении буду найдены заметные различия между корреляцией Спирмена и Пирсона, то объясните причину
