@@ -1,0 +1,116 @@
+---
+title: "stepik_report_5"
+author: "Alona Sychevska"
+date: "10/25/2019"
+output: html_document
+---
+
+```{r message=FALSE}
+library(psych)
+library(ggplot2)
+library(GGally)
+library(qqplotr)
+library(lattice)
+library(Rmisc)
+library(Hmisc)
+```
+
+# Загрузка данных
+
+```{r}
+diabetes <- read.csv("~/code/scripts/R/stepik_projects/diabetes.csv")
+```
+
+#Определите тип каждого признака (количественные, порядковые, качественные). 
+
+```{r}
+diabetes$Outcome <- factor(diabetes$Outcome)
+levels(diabetes$Outcome) <- c("Здоров", "Болен")
+```
+
+# Работа с NA
+
+```{r}
+diabetes$BloodPressure[diabetes$BloodPressure == "0"] <- NA
+diabetes$Glucose[diabetes$Glucose == "0"] <- NA
+diabetes$SkinThickness[diabetes$SkinThickness == "0"] <- NA
+diabetes$Insulin[diabetes$Insulin == '0'] <- NA
+diabetes$BMI[diabetes$BMI == '0'] <- NA
+diabetes$DiabetesPedigreeFunction[diabetes$DiabetesPedigreeFunction == '0'] <- NA
+
+colSums(is.na(diabetes))
+
+diabetes <- na.omit(diabetes)
+```
+
+1. Для всех количественных признаков проверьте гипотезу о том, что они распределены нормально. Запишите свои наблюдения 
+
+Для проверки распределения на нормальность используется Shapiro-Wilk normality test или же Mann_Whitney U-test, если есть outliers.
+H0 -- нулевая гипотеза, что наше распределение значимо не отличается от нормального и если мы получаем p-value > 0,05 – это хорошо в нашем случае. H1 -- альтернативная гипотеза о том, что наше распределение отличается от нормального.
+
+В результате я получила очень низкие p-value, то есть нужно отклонить нулевую гипотезу.
+
+```{r}
+#m <- names(diabetes)[sapply(diabetes, is.numeric)]
+#sapply(diabetes[, m], shapiro.test) 
+
+shapiro.test(diabetes$Pregnancies)
+shapiro.test(diabetes$Glucose)
+shapiro.test(diabetes$BloodPressure)
+shapiro.test(diabetes$SkinThickness)
+shapiro.test(diabetes$Insulin)
+shapiro.test(diabetes$BMI)
+shapiro.test(diabetes$DiabetesPedigreeFunction)
+shapiro.test(diabetes$Age)
+```
+
+2. Для всех количественных признаков проверьте гипотезу о том, различается ли среднее между здоровыми и больными людьми. Напишите, как вы выбрали между парным и непарным t-test и почему в этой ситуации вообще корректно использовать t-test. Запишите свои наблюдения 
+
+Я выбрала непарный t-test, так как у нас переменные независимы. Можно увидеть, что среднее значения по всех переменных в больных людей выше, чем в здоровых, но больше всего это заметно по переменной Insulin. 
+
+```{r}
+t.test(Pregnancies~Outcome, diabetes)
+t.test(Glucose~Outcome, diabetes)
+t.test(BloodPressure~Outcome, diabetes)
+t.test(SkinThickness~Outcome, diabetes)
+t.test(Insulin~Outcome, diabetes)
+t.test(BMI~Outcome, diabetes)
+t.test(DiabetesPedigreeFunction~Outcome, diabetes)
+t.test(Age~Outcome, diabetes)
+```
+3. Для всех количественных признаков постройте 95% доверительные интервалы для среднего по группам болен-здоров.
+
+```{r}
+
+ggplot(diabetes, aes(Outcome, Insulin)) +
+  stat_summary(fun.data = mean_cl_normal,
+  geom = "pointrange", size=2)
+
+ggplot(diabetes, aes(Outcome, Pregnancies)) +
+  stat_summary(fun.data = mean_cl_normal,
+  geom = "pointrange", size=2)
+
+ggplot(diabetes, aes(Outcome, Glucose)) +
+  stat_summary(fun.data = mean_cl_normal,
+  geom = "pointrange", size=2)
+
+ggplot(diabetes, aes(Outcome, SkinThickness)) +
+  stat_summary(fun.data = mean_cl_normal,
+  geom = "pointrange", size=2)
+
+ggplot(diabetes, aes(Outcome, BMI)) +
+  stat_summary(fun.data = mean_cl_normal,
+  geom = "pointrange", size=2)
+
+ggplot(diabetes, aes(Outcome, DiabetesPedigreeFunction)) +
+  stat_summary(fun.data = mean_cl_normal,
+  geom = "pointrange", size=2)
+
+ggplot(diabetes, aes(Outcome, Age)) +
+  stat_summary(fun.data = mean_cl_normal,
+  geom = "pointrange", size=2)
+```
+
+4. Как мы знаем, если интервалы не пересекаются (а если точнее, если одно среднее не лежит в ди для другого среднего и наоборот), то отличие между этими среднее важное. Посмотрите на признаки, которые различаются с точки зрения ди и с точки зрения t-test, совпадают ли эти признаки?
+
+5. Для всех пар количественных переменных сделайте тест на значимость корреляции. Запишите свои наблюдения 
