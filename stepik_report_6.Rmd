@@ -1,0 +1,293 @@
+---
+title: "stepik_report_6"
+author: "Alona Sychevska"
+date: "10/27/2019"
+output: html_document
+---
+
+# Подключение библиотек 
+
+```{r message=FALSE}
+library(dplyr)
+library(pixiedust)
+library(lattice)
+library(GGally)
+#library(ggpubr)
+library(psych)
+library(ggplot2)
+library(GGally)
+library(qqplotr)
+library(lattice)
+library(Rmisc)
+library(corrplot)
+library(Hmisc)
+```
+
+# Загрузка данных
+
+```{r}
+protein_expression <- read.csv("~/code/scripts/R/Data_Cortex_Nuclear.csv")
+```
+
+# Проверка структури дата фрейма 
+
+```{r}
+head(protein_expression)
+str(protein_expression)
+```
+
+#Определите тип каждого признака (количественные, порядковые, качественные). 
+
+В даном датасете все переменные с экспрессией белков — это количественные переменные.
+Переменные Genotype, Treatment, Behavior, class — качественные.
+
+#Определение размера датасета
+
+```{r}
+dim(protein_expression)
+```
+
+# Работа с NA
+
+Я удалила 7 белков так, как по ним было много пропущенных значений, осталось 70 белков.
+После этого решила удалить некорые строки, где остались NA по других белках, их не так много и наблюдений у нас вполне достаточно. Получила датафрейм в котором 1062 наблюдений и 75 переменных.
+
+```{r}
+colSums(is.na(protein_expression))
+
+protein_expression <- subset(protein_expression, select = -c(BCL2_N, BAD_N, pCFOS_N, H3AcK18_N, EGR1_N, H3MeK4_N, Bcatenin_N))
+
+protein_expression <- na.omit(protein_expression)
+
+```
+
+# Для каждого количественного признака* постройте QQ-плот
+
+На qqplots можно заметить много распределений белков с толстыми хвостами.
+Решила прологарифмировать распределения, возможно, это логнормальное распределение (?). Для некотрых белков это действительно помогло и стало не идеально, но лучше (DYRK1A_N, ITSN1_N, BDNF_N, ...)
+
+```{r}
+sapply(colnames(protein_expression), function(col) {
+  data <- protein_expression[, col]
+  if (is.numeric(data)) {
+    ggplot() + aes(sample = scale(data)) +
+      stat_qq() +
+      stat_qq_line() +
+      ggtitle(col)+
+      theme_bw()
+  }
+})
+
+log_qqplot <- function(col) {
+  ggplot() + aes(sample = scale(log(protein_expression[, col]))) +
+    stat_qq() +
+    stat_qq_line() +
+    ggtitle(col) +
+    theme_bw()
+}
+
+log_qqplot("DYRK1A_N")
+log_qqplot("ITSN1_N")
+log_qqplot("BDNF_N")
+
+protein_expression[, -c(1, 72:75)] <- log(protein_expression[, -c(1, 72:75)])
+```
+
+# Анализ линейных зависимостей. Матрица корреляций и p-value
+
+Я построила матрицу корреляций и зачимости корреляции (смотрим по p-values), для этого применила функцию rcorr с использованием корреляции Спирмана, так как в наших распределениях есть аутлаеры (qqplots, скатерплоты).
+
+H0 - корреляции нету между белками; то есть она равно нулю.
+H1 - корреляция между белками есть; то есть она не равна нулю.
+
+С матриц корреляции и p-value я выбросила по одному белку с каждой пары, где была высокая корреляция (больше 0.8) и она была значима (p-value < 0.05).
+
+```{r}
+#install.packages("corrplot")
+
+matriz <- rcorr(as.matrix(protein_expression[, sapply(protein_expression, is.numeric)]), type=c("spearman"))
+
+mat_corr <- matriz$r
+mat_pvalue <- matriz$P
+
+mat_pvalue[is.na(mat_pvalue)] <- 1
+
+which(mat_corr > 0.8 & mat_corr < 1 & mat_pvalue < 0.05, arr.ind=TRUE)
+protein_corr <- which(mat_corr > 0.8 & mat_corr < 1 & mat_pvalue < 0.05, arr.ind=TRUE)
+
+colm <- colnames(mat_corr[, -c(1, 2, 3, 4, 5, 6, 7, 11, 12, 14, 15, 17, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 33, 35, 37, 38, 41)])
+
+colnames(protein_expression[, c(1, 72:75)])
+
+protein_expression_0 <- protein_expression
+protein_expression <- protein_expression[, c("MouseID", "pCAMKII_N", "pCREB_N", "pELK_N", "PKCA_N", "pNR2A_N", "pPKCAB_N", "pRSK_N", "AKT_N", "APP_N", "SOD1_N", "P38_N", "DSCR1_N", "pNUMB_N", "RAPTOR_N", "pP70S6_N", "NUMB_N", "P70S6_N", "pGSK3B_N", "pPKCG_N", "CDK5_N", "S6_N", "ADARB1_N", "AcetylH3K9_N", "RRP1_N", "BAX_N", "ARC_N", "ERBB4_N", "nNOS_N", "Tau_N", "GFAP_N", "GluR3_N", "GluR4_N", "IL1B_N", "P3525_N", "pCASP9_N", "PSD95_N", "SNCA_N", "Ubiquitin_N", "pGSK3B_Tyr216_N", "SHH_N", "pS6_N", "SYP_N", "CaNA_N", "Genotype", "Treatment", "Behavior", "class")]
+
+#rownames_protein_corr <- row.names(protein_corr)
+  
+#protein_expression <- protein_expression[, !(colnames(protein_expression) %in% rownames_protein_corr), drop = FALSE]
+```
+
+# Oбщие статистики
+
+Cтатистики по группам, отличия между группами? Одинаковый ли размер этих групп? 
+
+Я использовала функцию describeBy, чтобы посмотреть на общие статистики, не учитывая данных с качественными признаками.  
+
+```{r}
+head(describe(protein_expression))
+
+head(describeBy(protein_expression[, -c(1, 45:48)], protein_expression$class, mat=T))
+```
+
+# scatterplots (outliers, неоднородности, вид распределений, вид зависимостей (линейные/нелинейные))
+
+Решила посмотреть на парные скатерплоты белков, где корреляция очень различается.
+
+```{r}
+pairs(protein_expression[, -c(1, 11:48)], col=protein_expression$class)
+
+ggpairs(protein_expression[, -c(1, 11:48)])
+
+#Не знаю как изменить размер графика и сделать его больше?
+#ggpairs(protein_expression, lower = list(combo = wrap("facethist", binwidth = 1, mapping=aes(colour=class, alpha=0.4))))
+```
+
+# Для всех количественных признаков проверьте гипотезу о том, что они распределены нормально. 
+
+Для проверки распределения на нормальность используется Shapiro-Wilk normality test или же Mann_Whitney U-test, если есть outliers.
+H0 -- нулевая гипотеза, что наше распределение значимо не отличается от нормального и если мы получаем p-value > 0,05 – это хорошо в нашем случае. H1 -- альтернативная гипотеза о том, что наше распределение отличается от нормального.
+
+Я посмотрела на результаты p-value по белках и только по белку pCREB_N (0.067) она сказалась больше 0.05. В всех остальных случаях мы не можем оставить нулевую гипотезу.
+
+Для данных, что я логарифмировала таких значений больше (p-value > 0.05).
+
+```{r}
+#m <- names(diabetes)[sapply(diabetes, is.numeric)]
+#sapply(diabetes[, m], shapiro.test) 
+
+ans <- rep(NA, ncol(protein_expression))
+for (i in 1:ncol(protein_expression)) {
+  if (is.factor(protein_expression[,i])) next
+  ans[i] <- shapiro.test(protein_expression[,i])$p.value
+}
+
+n <- protein_expression[, -c(1, 45:48)]
+s_shap <- sapply(n, shapiro.test) 
+
+
+#s_shap[[1]] ## look at the first column results
+
+```
+
+# Экспрессия каких белков отличается между разными мышами
+
+Я решила использовать Mann-Whitney U test — непараметрический статистический критерий, используемый для оценки различий между двумя выборками по признаку, измеренному в количественной или порядковой шкале. 
+
+Первая выборка — это мыши, которых лечили препаратом Memantine. Вторая выборка — мыши, которых лечили препаратом Saline.
+
+H0: Экспрессия одинакова между группами.
+
+H1: Экспрессия разная.
+
+```{r}
+out <- lapply(2:44, function(x) pairwise.wilcox.test(protein_expression[[x]], protein_expression$Treatment))
+names(out) <- names(protein_expression)[2:44]
+out
+tests <- sapply(out, function(x) {
+    p <- x$p.value
+    p <- pvalString(p, format="exact", digits=4)
+    n <- outer(rownames(p), colnames(p), paste, sep='v')
+    p <- as.vector(p)
+    names(p) <- n
+    p
+})
+tests
+```
+
+Для некоторых белков (APP_N, pCREB_N, pP70S6_N, PKCA_N) я получила p-value > 0.05, это дает основания для таких белков отвегнуть Ho о том, что их экспрессия одинакова. Для остальных белков — нету основания отвергнуть Ho о том, что их экспрессия одинаковая. 
+
+
+# Множественное тестирование и поправки.
+
+1. Разбираемся с марицей корреляций (для 77 белков мы проверили 77 * 76  / 2 гипотез). Какие p-value вы видите в матрице -- с поправкой на множественное тестирование или нет? Нужно в этом случае делать поправку? Если да, то почему
+
+В матрице корреляций я сохранила значения p-value в переменную mat_pvalue, я не использовала поправку на множественное тестирование, но ее надо использовать, так как возможна ошибка первого рода и можно сделать ложное открытие.
+ 
+2. Посмотрите в отчете, где вы тестировали много гипотез (нормальность, т-тесты, ...). Посчитайте, сколько гипотез вы проверили и сколько из них отклоняли нулевую гипотезу. 
+
+Я провела три теста в предыдущей работе (корреляция, ноормальность и Mann-Whitney test, чтобы определить разная ли экспрессия между разными мышами). 
+
+
+Вот тут я немного не понимаю как считать сколько раз отклонила, для каждого с тестов я для одних белков отклоняла H0, но для других — нет.
+
+3. Теперь сделайте поправку на множественное тестирование с помощью Бонферрони и Бенджамини-Хохберга. Чем отличаются эти два метода? Как изменилось количество отвергнутых гипотез после поправки?
+
+Они отличаются тем, что поправка Бенджамини-Хохберга не так сильно влияет на значения p-value.
+
+H0 - корреляции нету между белками; то есть она равно нулю.
+H1 - корреляция между белками есть; то есть она не равна нулю.
+
+После использования поправок число гипотез для котрых корреляция значима (p-value < 0.05) уменьшилось, в случае с поправкой Бонферрони таких значений ~ на 800 меньше.
+
+```{r}
+
+# с этой функцией так и не поняла пока что
+p_adj_bonf <- corr.test(protein_expression[, sapply(protein_expression, is.numeric)], method="spearman", adjust="bonferroni", alpha=.05)
+
+corr.p(p_adj_bonf$r, p_adj_bonf$n, adjust="bonferroni", alpha=.05)
+
+pvalue_bonferroni_cor <- p_adj_bonf$p
+sum(pvalue_bonferroni_cor <0.05)
+
+#поправка Бонферрони
+p_adj_bonf_0 <- p.adjust(mat_pvalue, method="bonferroni")
+
+sum(p_adj_bonf_0 < 0.05)
+
+#поправка Бенджамини-Хохберга
+p_adj_BH <- p.adjust(mat_pvalue, method = "BH")
+sum(p_adj_BH < 0.05)
+
+sum(mat_pvalue < 0.05)
+```
+
+4. Выберите один интересный белок и сделайте для него ANOVA по всем мышиным группам. Если нужно, проведите st-hoc анализ, чтобы понять, в каких именно группах есть отличие
+
+Я провела однофакторный дисперсионный анализ между независимой переменной class, которая делит наблюдения на группы и зависимой переменной — уровнем экспрессии белка pCAMKII_N. Я получила довольно большое значение F и очень маленькое p-value. Можно сказать, что есть статистическая разница между группами.
+
+Hypothesis in one-way ANOVA test:
+
+H0: The means between groups are identical
+
+H1: At least, the mean of one group is different
+
+Я провела множественное сравнение в ANOVA для независимых переменных Genotype, Treatment и зависимой — уровнем экспрессии белка pCAMKII_N. 
+
+С результатов можно сделать выводы:
+
+1) большая часть изменчивости обеспечивается благодаря фактору Treatment (Mean Sq = 4.023);
+2) Значимый эффект для фактора Treatment (F(1, 1059) = 29.923, p < 0.05);
+3) Незначимый эффект для фактора Genotype (F(1, 1059) = 0.644, p > 0.05)
+
+Hypothesis in two-way ANOVA test:
+
+H0: The means are equal for both variables (i.e., factor variable)
+
+H1: The means are different for both variables
+
+```{r}
+anova_one_way <- aov(protein_expression$pCAMKII_N~class, data = protein_expression)
+summary(anova_one_way)
+
+anova_two_way <- aov(protein_expression$pCAMKII_N~Genotype + Treatment, data = protein_expression)
+summary(anova_two_way)
+
+tuk_one_way_anova <- TukeyHSD(anova_one_way)
+tuk_one_way_anova
+
+tuk_two_way_anova <- TukeyHSD(anova_two_way)
+tuk_two_way_anova
+
+plot(tuk_one_way_anova)
+plot(tuk_two_way_anova)
+```
