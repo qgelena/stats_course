@@ -1,0 +1,15 @@
+---
+title: "Statistics Projects"
+author: "Alona Sychevska"
+date: "1/8/2020"
+output: html_document
+---
+
+I studied in a statistics course by Stepik Academy.
+
+TODO: Make this page beautiful (!)
+
+[Report 1: Intro to R Markdown](stepik_report1.html)
+
+[Report 2: Intro to Exploratory Data Analysis](stepik_report_2.html)
+

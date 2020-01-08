@@ -25,7 +25,7 @@ ggplot(mtcars, aes(x=mpg, y=disp, col=hp))+geom_point()
 ```
 
 ```{r, echo=FALSE, out.width = "400px"} 
-knitr::include_graphics("/Users/qgelena/downloads/foureyes.png")
+knitr::include_graphics("foureyes.jpg")
 ```
 
 Формула: 
