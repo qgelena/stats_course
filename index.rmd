@@ -13,3 +13,4 @@ TODO: Make this page beautiful (!)
 
 [Report 2: Intro to Exploratory Data Analysis](stepik_report_2.html)
 
+[Report 3: Central limit theorem, qq-plots, confidence intervals](stepik_report_3.html)
