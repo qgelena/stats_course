@@ -15,6 +15,8 @@ TODO: Make this page beautiful (!)
 
 [Report 3: Central limit theorem, qq-plots, confidence intervals](stepik_report_3.html)
 
-[Report4: EDA, Spearman & Pearson correlation](stepik_report_4.html)
+[Report 4: EDA, Spearman & Pearson correlation](stepik_report_4.html)
 
-[Report5: Hypothesis testing](stepik_report_5.html)
+[Report 5: Hypothesis testing](stepik_report_5.html)
+
+[Report 6: Multiple comparisons, ANOVA](stepik_report_6.html)
