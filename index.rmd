@@ -5,9 +5,9 @@ date: "1/8/2020"
 output: html_document
 ---
 
-I studied in a statistics course by Stepik Academy.
+In September and October 2019 I studied the 7-week course "Statistics for Biologists", organized by Stepik Academy (https://academy.stepik.org/) and earned a certificate about successful completion (https://stepik.org/cert/251352). During this course, I learned skills in basic statistics and R programming & visualization. This course was well structured and used real datasets connected to biological topics. Upon completing the course, I started to study other courses such as "Big Data for Data Science", which I completed as well (https://stepik.org/cert/268288) and "Introduction to Data Science and Machine learning" (https://stepik.org/course/4852). 
 
-TODO: Make this page beautiful (!)
+Here you can find my R notebooks from this course:
 
 [Report 1: Intro to R Markdown](stepik_report1.html)
 
